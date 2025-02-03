@@ -11,16 +11,11 @@
 #include <time.h>
 #include <errno.h>
 
-#define MAX_MSG_LEN 1000
-#define TIMEOUT_SEC 2 // Tempo de espera para retransmissão
-#define MSG_NUM 100
-
-#define WINDOW_SIZE 4                 // Tamanho da janela deslizante
-#define MAX_SEQ_NUM (2 * WINDOW_SIZE) // Números de sequência cíclicos
+#define MAX_MSG_LEN 100
+#define MSG_LEN 516
 
 #define ALPHA 0.125
 #define BETA 0.25
-#define INITIAL_TIMEOUT 1000 // 1 segundo
 
 #define ERROR -1
 #define TRUE 1
@@ -51,6 +46,16 @@ struct pkt
     unsigned char msg[MAX_MSG_LEN];
 };
 typedef struct pkt pkt;
+
+#define WINDOW_SIZE 10                // Tamanho da janela deslizante
+#define MAX_SEQ_NUM (2 * WINDOW_SIZE) // Números de sequência cíclicos
+
+typedef struct
+{
+    pkt packet;
+    int acked;
+    struct timeval send_time;
+} window_entry;
 
 unsigned short checksum(unsigned short *, int);
 int iscorrupted(pkt *);

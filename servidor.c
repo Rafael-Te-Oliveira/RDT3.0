@@ -1,4 +1,20 @@
 #include "rdt3.0.h"
+#include <openssl/md5.h>
+
+void compute_md5(const unsigned char *data, size_t length, unsigned char *md5_result)
+{
+    MD5(data, length, md5_result); // Calcula o hash MD5
+}
+
+void print_md5(unsigned char *md5_result)
+{
+    printf("MD5: ");
+    for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
+    {
+        printf("%02x", md5_result[i]); // Converte para hexadecimal
+    }
+    printf("\n");
+}
 
 int main(int argc, char **argv)
 {
@@ -27,15 +43,13 @@ int main(int argc, char **argv)
         return -1;
     };
 
-    int msg;
-    int pck_recv = 0;
-    while (1)
-    {
-        if ((rdt_recv(s, &msg, sizeof(msg), &caddr)))
-        {
-            pck_recv++;
-        }
-    }
+    char msg[MSG_LEN];
+
+    rdt_recv(s, &msg, sizeof(msg), &caddr);
+
+    unsigned char md5_result[MD5_DIGEST_LENGTH];
+    compute_md5((unsigned char *)msg, strlen(msg), md5_result);
+    print_md5(md5_result);
 
     return 0;
 }
