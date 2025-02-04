@@ -43,12 +43,20 @@ int main(int argc, char **argv)
         return -1;
     };
 
-    char msg[MSG_LEN];
+    FILE *file = fopen("imagem_recebida.png", "wb");
+    if (!file)
+    {
+        perror("Erro ao criar o arquivo");
+        return;
+    }
+    char buffer[MSG_LEN];
 
-    rdt_recv(s, &msg, sizeof(msg), &caddr);
+    rdt_recv(s, &buffer, sizeof(buffer), &caddr);
+
+    fwrite(buffer, 1, MSG_LEN, file);
 
     unsigned char md5_result[MD5_DIGEST_LENGTH];
-    compute_md5((unsigned char *)msg, strlen(msg), md5_result);
+    compute_md5((unsigned char *)buffer, strlen(buffer), md5_result);
     print_md5(md5_result);
 
     return 0;

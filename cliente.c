@@ -43,12 +43,22 @@ int main(int argc, char **argv)
         return -1;
     };
 
-    char msg[MSG_LEN] = "Teste de mensagem que sera fragmentada";
+    FILE *file = fopen("imagem_enviada.png", "rb");
 
-    rdt_send(s, &msg, sizeof(msg), &saddr);
+    if (!file)
+    {
+        perror("Erro ao abrir o arquivo");
+        return;
+    }
+
+    char buffer[MSG_LEN];
+
+    fread(buffer, 1, MSG_LEN, file);
+
+    rdt_send(s, &buffer, sizeof(buffer), &saddr);
 
     unsigned char md5_result[MD5_DIGEST_LENGTH];
-    compute_md5((unsigned char *)msg, strlen(msg), md5_result);
+    compute_md5((unsigned char *)buffer, strlen(buffer), md5_result);
     print_md5(md5_result);
 
     return 0;

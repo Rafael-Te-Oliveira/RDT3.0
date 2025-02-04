@@ -12,7 +12,7 @@
 #include <errno.h>
 
 #define MAX_MSG_LEN 100
-#define MSG_LEN 516
+#define MSG_LEN 100000
 
 #define ALPHA 0.125
 #define BETA 0.25

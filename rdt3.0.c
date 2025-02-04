@@ -211,8 +211,8 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
     {
         nr = recvfrom(sockfd, &p, sizeof(pkt), 0, (struct sockaddr *)src, (socklen_t *)&addrlen);
         int offset = 0;
-        delay_ack();
-        corrupt_packet(&p);
+        // delay_ack();
+        // corrupt_packet(&p);
 
         if (nr > 0 && !iscorrupted(&p))
         {
