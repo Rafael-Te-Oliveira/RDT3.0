@@ -11,7 +11,7 @@
 #include <time.h>
 #include <errno.h>
 
-#define MAX_MSG_LEN 100
+#define MMS 1000
 #define MSG_LEN 100000
 
 #define ALPHA 0.125
@@ -43,12 +43,12 @@ typedef struct hdr hdr;
 struct pkt
 {
     hdr h;
-    unsigned char msg[MAX_MSG_LEN];
+    unsigned char msg[MMS];
 };
 typedef struct pkt pkt;
 
-#define WINDOW_SIZE 10                // Tamanho da janela deslizante
-#define MAX_SEQ_NUM (2 * WINDOW_SIZE) // Números de sequência cíclicos
+#define MAX_WINDOW_SIZE 100               // Tamanho maximo da janela deslizante
+#define MAX_SEQ_NUM (2 * MAX_WINDOW_SIZE) // Números de sequência cíclicos
 
 typedef struct
 {

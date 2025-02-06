@@ -68,20 +68,20 @@ void delay_ack()
 
 int ack_in_window(hseq_t ack_seq)
 {
-    return (ack_seq >= snd_base && ack_seq < snd_base + WINDOW_SIZE) ||
-           (snd_base + WINDOW_SIZE > MAX_SEQ_NUM && (ack_seq >= snd_base || ack_seq < (snd_base + WINDOW_SIZE) % MAX_SEQ_NUM));
+    return (ack_seq >= snd_base && ack_seq < snd_base + MAX_WINDOW_SIZE) ||
+           (snd_base + MAX_WINDOW_SIZE > MAX_SEQ_NUM && (ack_seq >= snd_base || ack_seq < (snd_base + MAX_WINDOW_SIZE) % MAX_SEQ_NUM));
 }
 
 int seq_in_window(hseq_t seq_num)
 {
-    return (seq_num >= rcv_base && seq_num < rcv_base + WINDOW_SIZE) ||
-           (rcv_base + WINDOW_SIZE > MAX_SEQ_NUM && (seq_num >= rcv_base || seq_num < (rcv_base + WINDOW_SIZE) % MAX_SEQ_NUM));
+    return (seq_num >= rcv_base && seq_num < rcv_base + MAX_WINDOW_SIZE) ||
+           (rcv_base + MAX_WINDOW_SIZE > MAX_SEQ_NUM && (seq_num >= rcv_base || seq_num < (rcv_base + MAX_WINDOW_SIZE) % MAX_SEQ_NUM));
 }
 
 int make_pkt(pkt *p, htype_t type, hseq_t seqnum, void *msg, int msg_len)
 {
 
-    if (msg_len > MAX_MSG_LEN)
+    if (msg_len > MMS)
     {
         return ERROR;
     }
@@ -93,7 +93,7 @@ int make_pkt(pkt *p, htype_t type, hseq_t seqnum, void *msg, int msg_len)
     if (msg_len > 0)
     {
         p->h.pkt_size += msg_len;
-        memset(p->msg, 0, MAX_MSG_LEN);
+        memset(p->msg, 0, MMS);
         memcpy(p->msg, msg, msg_len);
     }
     p->h.csum = checksum((unsigned short *)p, p->h.pkt_size);
@@ -108,40 +108,46 @@ int has_ackseq(pkt *p, hseq_t seqnum)
 
 int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
 {
-    static window_entry send_window[WINDOW_SIZE];
+    static window_entry send_window[MAX_WINDOW_SIZE];
+    int window_size = 1;
+
     struct timeval timeout, start, end;
     int addrlen = sizeof(struct sockaddr_in);
     pkt ack;
 
-    int total_packets = (buf_len + MAX_MSG_LEN - 1) / MAX_MSG_LEN;
+    int total_packets = (buf_len + MMS - 1) / MMS;
     int sent_packets = 0;
     int confirmed_packets = 0;
+    int envios_simultaneos = 0;
+    int acked_count = 0;
 
     float sample_rtt;
 
     while (confirmed_packets < total_packets)
     {
-        while ((next_seqnum - snd_base + MAX_SEQ_NUM) % MAX_SEQ_NUM < WINDOW_SIZE && sent_packets < total_packets)
+        while ((next_seqnum - snd_base + MAX_SEQ_NUM) % MAX_SEQ_NUM < window_size && sent_packets < total_packets)
         {
-            int offset = sent_packets * MAX_MSG_LEN;
-            int chunk_size = (offset + MAX_MSG_LEN > buf_len) ? buf_len - offset : MAX_MSG_LEN;
+            int offset = sent_packets * MMS;
+            int chunk_size = (offset + MMS > buf_len) ? buf_len - offset : MMS;
 
-            make_pkt(&send_window[next_seqnum % WINDOW_SIZE].packet, PKT_DATA, next_seqnum, (char *)buf + offset, chunk_size);
+            make_pkt(&send_window[next_seqnum % MAX_WINDOW_SIZE].packet, PKT_DATA, next_seqnum, (char *)buf + offset, chunk_size);
 
-            send_window[next_seqnum % WINDOW_SIZE].acked = 0;
+            send_window[next_seqnum % MAX_WINDOW_SIZE].acked = 0;
 
-            gettimeofday(&send_window[next_seqnum % WINDOW_SIZE].send_time, NULL);
+            gettimeofday(&send_window[next_seqnum % MAX_WINDOW_SIZE].send_time, NULL);
 
-            sendto(sockfd, &send_window[next_seqnum % WINDOW_SIZE].packet,
-                   send_window[next_seqnum % WINDOW_SIZE].packet.h.pkt_size,
+            sendto(sockfd, &send_window[next_seqnum % MAX_WINDOW_SIZE].packet,
+                   send_window[next_seqnum % MAX_WINDOW_SIZE].packet.h.pkt_size,
                    MSG_CONFIRM, (struct sockaddr *)dst, addrlen);
 
             printf("Sent packet SeqNum: %d\n", next_seqnum);
 
             next_seqnum = (next_seqnum + 1) % MAX_SEQ_NUM;
             sent_packets++;
+            envios_simultaneos++;
+            printf("Envios simultaneos: %d\n", envios_simultaneos);
         }
-
+        envios_simultaneos = 0;
         settimer(sockfd, timeout, msec);
 
         int nr = recvfrom(sockfd, &ack, sizeof(pkt), MSG_WAITALL,
@@ -150,13 +156,14 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
         if (nr > 0 && !iscorrupted(&ack) && ack.h.pkt_type == PKT_ACK)
         {
             int ack_seq = ack.h.pkt_seq;
-            if (ack_in_window(ack_seq) && !send_window[ack_seq % WINDOW_SIZE].acked)
+            if (ack_in_window(ack_seq) && !send_window[ack_seq % MAX_WINDOW_SIZE].acked)
             {
                 printf("ACK: %d recebido com sucesso!\n", ack_seq);
-                send_window[ack_seq % WINDOW_SIZE].acked = 1;
+                send_window[ack_seq % MAX_WINDOW_SIZE].acked = 1;
                 confirmed_packets++;
+                acked_count++;
 
-                start = send_window[ack_seq % WINDOW_SIZE].send_time;
+                start = send_window[ack_seq % MAX_WINDOW_SIZE].send_time;
                 gettimeofday(&end, NULL);
 
                 sample_rtt = time_diff(&start, &end);
@@ -164,26 +171,37 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
 
                 printf("rtt: %.3f\n", sample_rtt);
 
-                while (send_window[snd_base % WINDOW_SIZE].acked)
+                while (send_window[snd_base % MAX_WINDOW_SIZE].acked)
                 {
-                    send_window[snd_base % WINDOW_SIZE].acked = 0;
+                    send_window[snd_base % MAX_WINDOW_SIZE].acked = 0;
                     snd_base = (snd_base + 1) % MAX_SEQ_NUM;
+                }
+                if (window_size < MAX_WINDOW_SIZE && acked_count >= window_size)
+                {
+                    acked_count = 0;
+                    window_size++;
+                    printf("Tamanho da janela: %d\n", window_size);
                 }
             }
         }
         else
         {
+            printf("Estouro de timer\n");
             gettimeofday(&end, NULL);
             for (int i = snd_base; i != next_seqnum; i = (i + 1) % MAX_SEQ_NUM)
             {
-                int idx = i % WINDOW_SIZE;
+                int idx = i % MAX_WINDOW_SIZE;
                 float elapsed_time = time_diff(&send_window[idx].send_time, &end);
                 if (!send_window[idx].acked && elapsed_time > msec)
                 {
+                    acked_count = 0;
+                    window_size = 1;
+                    printf("Tamanho da janela resetado: %d\n", window_size);
+
                     gettimeofday(&send_window[idx].send_time, NULL);
                     sendto(sockfd, &send_window[idx].packet, send_window[idx].packet.h.pkt_size,
                            MSG_CONFIRM, (struct sockaddr *)dst, addrlen);
-                    printf("Retransmitting packet SeqNum:%d\n", send_window[idx].packet.h.pkt_seq);
+                    printf("Retransmitting packet SeqNum: %d\n", send_window[idx].packet.h.pkt_seq);
                 }
             }
         }
@@ -200,19 +218,21 @@ int has_dataseqnum(pkt *p, hseq_t seqnum)
 
 int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
 {
-    static pkt recv_window[WINDOW_SIZE];
-    static int received[WINDOW_SIZE] = {0};
+    static pkt recv_window[MAX_WINDOW_SIZE];
+    static int received[MAX_WINDOW_SIZE] = {0};
     pkt p, ack;
     int nr, addrlen = sizeof(struct sockaddr_in);
     int received_count = 0;
-    int expected_packets = (buf_len + MAX_MSG_LEN - 1) / MAX_MSG_LEN;
+    int expected_packets = (buf_len + MMS - 1) / MMS;
 
     while (received_count < expected_packets)
     {
         nr = recvfrom(sockfd, &p, sizeof(pkt), 0, (struct sockaddr *)src, (socklen_t *)&addrlen);
         int offset = 0;
-        // delay_ack();
-        // corrupt_packet(&p);
+
+        // usleep(1000000);
+        //  delay_ack();
+        corrupt_packet(&p);
 
         if (nr > 0 && !iscorrupted(&p))
         {
@@ -220,7 +240,7 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
 
             if (seq_in_window(seqnum))
             {
-                int index = seqnum % WINDOW_SIZE;
+                int index = seqnum % MAX_WINDOW_SIZE;
                 if (!received[index])
                 {
                     recv_window[index] = p;
@@ -228,10 +248,10 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
                     offset = received_count * (p.h.pkt_size - sizeof(hdr));
                     received_count++;
                 }
-                while (received[rcv_base % WINDOW_SIZE])
+                while (received[rcv_base % MAX_WINDOW_SIZE])
                 {
-                    memcpy(buf + offset, recv_window[rcv_base % WINDOW_SIZE].msg, recv_window[rcv_base % WINDOW_SIZE].h.pkt_size - sizeof(hdr));
-                    received[rcv_base % WINDOW_SIZE] = 0;
+                    memcpy(buf + offset, recv_window[rcv_base % MAX_WINDOW_SIZE].msg, recv_window[rcv_base % MAX_WINDOW_SIZE].h.pkt_size - sizeof(hdr));
+                    received[rcv_base % MAX_WINDOW_SIZE] = 0;
                     rcv_base = (rcv_base + 1) % MAX_SEQ_NUM;
                 }
             }
