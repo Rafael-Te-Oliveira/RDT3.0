@@ -223,6 +223,7 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
     pkt p, ack;
     int nr, addrlen = sizeof(struct sockaddr_in);
     int received_count = 0;
+    int received_in_order = 0;
     int expected_packets = (buf_len + MMS - 1) / MMS;
 
     while (received_count < expected_packets)
@@ -231,7 +232,7 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
         int offset = 0;
 
         // usleep(1000000);
-        //  delay_ack();
+        delay_ack();
         corrupt_packet(&p);
 
         if (nr > 0 && !iscorrupted(&p))
@@ -245,14 +246,15 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
                 {
                     recv_window[index] = p;
                     received[index] = 1;
-                    offset = received_count * (p.h.pkt_size - sizeof(hdr));
                     received_count++;
                 }
                 while (received[rcv_base % MAX_WINDOW_SIZE])
                 {
+                    offset = received_in_order * (p.h.pkt_size - sizeof(hdr));
                     memcpy(buf + offset, recv_window[rcv_base % MAX_WINDOW_SIZE].msg, recv_window[rcv_base % MAX_WINDOW_SIZE].h.pkt_size - sizeof(hdr));
                     received[rcv_base % MAX_WINDOW_SIZE] = 0;
                     rcv_base = (rcv_base + 1) % MAX_SEQ_NUM;
+                    received_in_order++;
                 }
             }
             make_pkt(&ack, PKT_ACK, seqnum, NULL, 0);
