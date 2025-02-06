@@ -55,7 +55,16 @@ int main(int argc, char **argv)
 
     fread(buffer, 1, MSG_LEN, file);
 
+    struct timeval inicio, fim;
+    gettimeofday(&inicio, NULL);
+
     rdt_send(s, &buffer, sizeof(buffer), &saddr);
+
+    gettimeofday(&fim, NULL);
+
+    float exec_time = time_diff(&inicio, &fim);
+
+    printf("Transmissão concluída em %.3f msec\n", exec_time);
 
     unsigned char md5_result[MD5_DIGEST_LENGTH];
     compute_md5((unsigned char *)buffer, strlen(buffer), md5_result);

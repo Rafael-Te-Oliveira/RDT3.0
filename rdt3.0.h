@@ -64,5 +64,6 @@ int has_ackseq(pkt *, hseq_t);
 int rdt_send(int, void *, int, struct sockaddr_in *);
 int has_dataseqnum(pkt *, hseq_t);
 int rdt_recv(int, void *, int, struct sockaddr_in *);
+float time_diff(struct timeval *, struct timeval *);
 
 #endif

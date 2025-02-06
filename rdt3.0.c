@@ -147,7 +147,6 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
             envios_simultaneos++;
             printf("Envios simultaneos: %d\n", envios_simultaneos);
         }
-        envios_simultaneos = 0;
         settimer(sockfd, timeout, msec);
 
         int nr = recvfrom(sockfd, &ack, sizeof(pkt), MSG_WAITALL,
@@ -159,10 +158,12 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
             if (ack_in_window(ack_seq) && !send_window[ack_seq % MAX_WINDOW_SIZE].acked)
             {
                 printf("ACK: %d recebido com sucesso!\n", ack_seq);
+                
                 send_window[ack_seq % MAX_WINDOW_SIZE].acked = 1;
                 confirmed_packets++;
                 acked_count++;
-
+                envios_simultaneos--;
+                
                 start = send_window[ack_seq % MAX_WINDOW_SIZE].send_time;
                 gettimeofday(&end, NULL);
 
@@ -231,9 +232,9 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
         nr = recvfrom(sockfd, &p, sizeof(pkt), 0, (struct sockaddr *)src, (socklen_t *)&addrlen);
         int offset = 0;
 
-        // usleep(1000000);
-        delay_ack();
-        corrupt_packet(&p);
+        //usleep(100000);
+        //delay_ack();
+        //corrupt_packet(&p);
 
         if (nr > 0 && !iscorrupted(&p))
         {
