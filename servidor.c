@@ -27,7 +27,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    FILE *file = fopen("imagem_recebida.png", "wb");
+    FILE *file = fopen("arquivo_recebido.txt", "wb");
     if (!file)
     {
         perror("Erro ao criar o arquivo");
@@ -38,7 +38,6 @@ int main(int argc, char **argv)
 
     // Recebe o tamanho do arquivo
     rdt_recv(s, &file_size, sizeof(file_size), &caddr);
-    printf("Tamanho do arquivo: %ld\n", file_size);
 
     char buffer[MAX_BUFFER_SIZE];
     long total_received = 0;
