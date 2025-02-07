@@ -1,8 +1,8 @@
 #include "rdt3.0.h"
 
-float estimated_rtt = 300; // Tempo inicial em ms
+float estimated_rtt = 100; // Tempo inicial em ms
 float dev_rtt = 0;
-float msec = 300;
+float msec = 100;
 
 static hseq_t rcv_base = 0; // Base da janela do receptor
 static hseq_t snd_base = 0; // Base da janela do emissor
@@ -32,6 +32,8 @@ void settimer(int s, struct timeval timeout, float msec)
 
 unsigned short checksum(unsigned short *buf, int nbytes)
 {
+    // printf("nbytes: %d\n", nbytes);
+    // printf("buf: %d\n", *buf);
     register long sum = 0;
     while (nbytes > 1)
     {
@@ -39,7 +41,7 @@ unsigned short checksum(unsigned short *buf, int nbytes)
         nbytes -= 2;
     }
     if (nbytes == 1)
-        sum += *(unsigned short *)buf;
+        sum += *(unsigned char *)buf;
     while (sum >> 16)
         sum = (sum & 0xffff) + (sum >> 16);
     return (unsigned short)~sum;
@@ -50,6 +52,8 @@ int iscorrupted(pkt *pr)
     pkt pl = *pr;
     pl.h.csum = 0;
     unsigned short csuml = checksum((void *)&pl, pl.h.pkt_size);
+    // printf("Checksum c: %u\n", csuml);
+    // printf("Checksum cc: %u\n", pr->h.csum);
     return csuml != pr->h.csum;
 }
 
@@ -97,7 +101,7 @@ int make_pkt(pkt *p, htype_t type, hseq_t seqnum, void *msg, int msg_len)
         memcpy(p->msg, msg, msg_len);
     }
     p->h.csum = checksum((unsigned short *)p, p->h.pkt_size);
-
+    // printf("Checksum: %u\n", p->h.csum);
     return SUCCESS;
 }
 
@@ -140,12 +144,12 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                    send_window[next_seqnum % MAX_WINDOW_SIZE].packet.h.pkt_size,
                    MSG_CONFIRM, (struct sockaddr *)dst, addrlen);
 
-            printf("Sent packet SeqNum: %d\n", next_seqnum);
+            // printf("Sent packet SeqNum: %d\n", next_seqnum);
 
             next_seqnum = (next_seqnum + 1) % MAX_SEQ_NUM;
             sent_packets++;
             envios_simultaneos++;
-            printf("Envios simultaneos: %d\n", envios_simultaneos);
+            // printf("Envios simultaneos: %d\n", envios_simultaneos);
         }
         settimer(sockfd, timeout, msec);
 
@@ -157,20 +161,21 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
             int ack_seq = ack.h.pkt_seq;
             if (ack_in_window(ack_seq) && !send_window[ack_seq % MAX_WINDOW_SIZE].acked)
             {
-                printf("ACK: %d recebido com sucesso!\n", ack_seq);
-                
+                // printf("ACK: %d recebido com sucesso!\n", ack_seq);
+
                 send_window[ack_seq % MAX_WINDOW_SIZE].acked = 1;
                 confirmed_packets++;
                 acked_count++;
                 envios_simultaneos--;
-                
+
                 start = send_window[ack_seq % MAX_WINDOW_SIZE].send_time;
                 gettimeofday(&end, NULL);
 
                 sample_rtt = time_diff(&start, &end);
                 msec = update_timeout(sample_rtt);
 
-                printf("rtt: %.3f\n", sample_rtt);
+                // printf("rtt: %.3f\n", sample_rtt);
+                // printf("Novo tempo limite: %.3f\n", msec);
 
                 while (send_window[snd_base % MAX_WINDOW_SIZE].acked)
                 {
@@ -181,13 +186,13 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                 {
                     acked_count = 0;
                     window_size++;
-                    printf("Tamanho da janela: %d\n", window_size);
+                    // printf("Tamanho da janela: %d\n", window_size);
                 }
             }
         }
         else
         {
-            printf("Estouro de timer\n");
+            // printf("Estouro de timer\n");
             gettimeofday(&end, NULL);
             for (int i = snd_base; i != next_seqnum; i = (i + 1) % MAX_SEQ_NUM)
             {
@@ -196,17 +201,17 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                 if (!send_window[idx].acked && elapsed_time > msec)
                 {
                     acked_count = 0;
-                    window_size = 1;
-                    printf("Tamanho da janela resetado: %d\n", window_size);
+                    window_size = window_size / 2;
+                    // printf("Tamanho da janela resetado: %d\n", window_size);
 
                     gettimeofday(&send_window[idx].send_time, NULL);
                     sendto(sockfd, &send_window[idx].packet, send_window[idx].packet.h.pkt_size,
                            MSG_CONFIRM, (struct sockaddr *)dst, addrlen);
-                    printf("Retransmitting packet SeqNum: %d\n", send_window[idx].packet.h.pkt_seq);
+                    // printf("Retransmitting packet SeqNum: %d\n", send_window[idx].packet.h.pkt_seq);
                 }
             }
         }
-        printf("Pacotes confirmados: %d\n", confirmed_packets);
+        // printf("Pacotes confirmados: %d\n", confirmed_packets);
         fflush(stdout);
     }
     return 0;
@@ -226,15 +231,11 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
     int received_count = 0;
     int received_in_order = 0;
     int expected_packets = (buf_len + MMS - 1) / MMS;
+    int offset = 0;
 
     while (received_count < expected_packets)
     {
         nr = recvfrom(sockfd, &p, sizeof(pkt), 0, (struct sockaddr *)src, (socklen_t *)&addrlen);
-        int offset = 0;
-
-        //usleep(100000);
-        //delay_ack();
-        //corrupt_packet(&p);
 
         if (nr > 0 && !iscorrupted(&p))
         {
@@ -251,16 +252,17 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
                 }
                 while (received[rcv_base % MAX_WINDOW_SIZE])
                 {
-                    offset = received_in_order * (p.h.pkt_size - sizeof(hdr));
+                    printf("OFFSET: %d\n", offset);
                     memcpy(buf + offset, recv_window[rcv_base % MAX_WINDOW_SIZE].msg, recv_window[rcv_base % MAX_WINDOW_SIZE].h.pkt_size - sizeof(hdr));
                     received[rcv_base % MAX_WINDOW_SIZE] = 0;
                     rcv_base = (rcv_base + 1) % MAX_SEQ_NUM;
                     received_in_order++;
+                    offset += (p.h.pkt_size - sizeof(hdr));
                 }
             }
             make_pkt(&ack, PKT_ACK, seqnum, NULL, 0);
 
-            printf("ACK: %d\n", seqnum);
+            // printf("ACK: %d\n", seqnum);
             fflush(stdout);
 
             sendto(sockfd, &ack, ack.h.pkt_size, 0, (struct sockaddr *)src, addrlen);

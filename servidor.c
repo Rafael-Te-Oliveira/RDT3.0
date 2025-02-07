@@ -49,11 +49,18 @@ int main(int argc, char **argv)
         perror("Erro ao criar o arquivo");
         return;
     }
-    char buffer[MSG_LEN];
+
+    long file_size;
+
+    rdt_recv(s, &file_size, sizeof(file_size), &caddr);
+
+    printf("%d\n", file_size);
+    // return 0;
+    char buffer[file_size];
 
     rdt_recv(s, &buffer, sizeof(buffer), &caddr);
 
-    fwrite(buffer, 1, MSG_LEN, file);
+    fwrite(buffer, 1, file_size, file);
 
     unsigned char md5_result[MD5_DIGEST_LENGTH];
     compute_md5((unsigned char *)buffer, strlen(buffer), md5_result);

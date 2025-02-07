@@ -11,8 +11,8 @@
 #include <time.h>
 #include <errno.h>
 
-#define MMS 1000
-#define MSG_LEN 100000
+#define MMS 10001
+#define MSG_LEN 1000000
 
 #define ALPHA 0.125
 #define BETA 0.25
@@ -47,7 +47,7 @@ struct pkt
 };
 typedef struct pkt pkt;
 
-#define MAX_WINDOW_SIZE 100               // Tamanho maximo da janela deslizante
+#define MAX_WINDOW_SIZE 20                // Tamanho maximo da janela deslizante
 #define MAX_SEQ_NUM (2 * MAX_WINDOW_SIZE) // Números de sequência cíclicos
 
 typedef struct

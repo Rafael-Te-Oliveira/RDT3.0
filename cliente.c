@@ -51,9 +51,17 @@ int main(int argc, char **argv)
         return;
     }
 
-    char buffer[MSG_LEN];
+    // Obtém o tamanho do arquivo
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    rewind(file);
 
-    fread(buffer, 1, MSG_LEN, file);
+    // Envia o tamanho do arquivo para o servidor
+    rdt_send(s, &file_size, sizeof(file_size), &saddr);
+
+    char buffer[file_size];
+
+    fread(buffer, 1, file_size, file);
 
     struct timeval inicio, fim;
     gettimeofday(&inicio, NULL);
