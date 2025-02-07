@@ -11,8 +11,8 @@
 #include <time.h>
 #include <errno.h>
 
-#define MMS 10001
-#define MSG_LEN 1000000
+#define MMS 100
+#define MAX_BUFFER_SIZE 1024
 
 #define ALPHA 0.125
 #define BETA 0.25

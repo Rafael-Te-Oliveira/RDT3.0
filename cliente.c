@@ -1,26 +1,10 @@
 #include "rdt3.0.h"
-#include <openssl/md5.h>
-
-void compute_md5(const unsigned char *data, size_t length, unsigned char *md5_result)
-{
-    MD5(data, length, md5_result); // Calcula o hash MD5
-}
-
-void print_md5(unsigned char *md5_result)
-{
-    printf("MD5: ");
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
-    {
-        printf("%02x", md5_result[i]); // Converte para hexadecimal
-    }
-    printf("\n");
-}
 
 int main(int argc, char **argv)
 {
     if (argc != 3)
     {
-        printf("%s <porta>\n", argv[0]);
+        printf("%s <IP> <porta>\n", argv[0]);
         return 0;
     }
     srand(time(NULL));
@@ -41,14 +25,14 @@ int main(int argc, char **argv)
     {
         perror("inet_pton()");
         return -1;
-    };
+    }
 
     FILE *file = fopen("imagem_enviada.png", "rb");
 
     if (!file)
     {
         perror("Erro ao abrir o arquivo");
-        return;
+        return -1;
     }
 
     // Obtém o tamanho do arquivo
@@ -59,24 +43,31 @@ int main(int argc, char **argv)
     // Envia o tamanho do arquivo para o servidor
     rdt_send(s, &file_size, sizeof(file_size), &saddr);
 
-    char buffer[file_size];
-
-    fread(buffer, 1, file_size, file);
+    char buffer[MAX_BUFFER_SIZE];
+    long total_sent = 0;
 
     struct timeval inicio, fim;
     gettimeofday(&inicio, NULL);
 
-    rdt_send(s, &buffer, sizeof(buffer), &saddr);
+    // Envia o arquivo em partes, com o tamanho máximo de buffer
+    while (total_sent < file_size)
+    {
+        int bytes_to_send = (file_size - total_sent > MAX_BUFFER_SIZE) ? MAX_BUFFER_SIZE : file_size - total_sent;
+
+        // Lê uma parte do arquivo para o buffer
+        fread(buffer, 1, bytes_to_send, file);
+
+        // Envia a parte do arquivo
+        rdt_send(s, buffer, bytes_to_send, &saddr);
+
+        total_sent += bytes_to_send;
+    }
 
     gettimeofday(&fim, NULL);
 
     float exec_time = time_diff(&inicio, &fim);
 
     printf("Transmissão concluída em %.3f msec\n", exec_time);
-
-    unsigned char md5_result[MD5_DIGEST_LENGTH];
-    compute_md5((unsigned char *)buffer, strlen(buffer), md5_result);
-    print_md5(md5_result);
-
+    fclose(file);
     return 0;
 }

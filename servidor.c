@@ -1,20 +1,4 @@
 #include "rdt3.0.h"
-#include <openssl/md5.h>
-
-void compute_md5(const unsigned char *data, size_t length, unsigned char *md5_result)
-{
-    MD5(data, length, md5_result); // Calcula o hash MD5
-}
-
-void print_md5(unsigned char *md5_result)
-{
-    printf("MD5: ");
-    for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
-    {
-        printf("%02x", md5_result[i]); // Converte para hexadecimal
-    }
-    printf("\n");
-}
 
 int main(int argc, char **argv)
 {
@@ -41,30 +25,37 @@ int main(int argc, char **argv)
     {
         perror("bind()");
         return -1;
-    };
+    }
 
     FILE *file = fopen("imagem_recebida.png", "wb");
     if (!file)
     {
         perror("Erro ao criar o arquivo");
-        return;
+        return -1;
     }
 
     long file_size;
 
+    // Recebe o tamanho do arquivo
     rdt_recv(s, &file_size, sizeof(file_size), &caddr);
+    printf("Tamanho do arquivo: %ld\n", file_size);
 
-    printf("%d\n", file_size);
-    // return 0;
-    char buffer[file_size];
+    char buffer[MAX_BUFFER_SIZE];
+    long total_received = 0;
 
-    rdt_recv(s, &buffer, sizeof(buffer), &caddr);
+    // Recebe o arquivo em partes
+    while (total_received < file_size)
+    {
+        int bytes_to_receive = (file_size - total_received > MAX_BUFFER_SIZE) ? MAX_BUFFER_SIZE : file_size - total_received;
 
-    fwrite(buffer, 1, file_size, file);
+        rdt_recv(s, buffer, bytes_to_receive, &caddr);
 
-    unsigned char md5_result[MD5_DIGEST_LENGTH];
-    compute_md5((unsigned char *)buffer, strlen(buffer), md5_result);
-    print_md5(md5_result);
+        // Escreve no arquivo
+        fwrite(buffer, 1, bytes_to_receive, file);
 
+        total_received += bytes_to_receive;
+    }
+
+    fclose(file);
     return 0;
 }
