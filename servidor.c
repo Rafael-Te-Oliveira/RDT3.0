@@ -39,13 +39,13 @@ int main(int argc, char **argv)
     // Recebe o tamanho do arquivo
     rdt_recv(s, &file_size, sizeof(file_size), &caddr);
 
-    char buffer[MAX_BUFFER_SIZE];
+    char buffer[BUFFER_SIZE];
     long total_received = 0;
 
     // Recebe o arquivo em partes
     while (total_received < file_size)
     {
-        int bytes_to_receive = (file_size - total_received > MAX_BUFFER_SIZE) ? MAX_BUFFER_SIZE : file_size - total_received;
+        int bytes_to_receive = (file_size - total_received > BUFFER_SIZE) ? BUFFER_SIZE : file_size - total_received;
 
         rdt_recv(s, buffer, bytes_to_receive, &caddr);
 

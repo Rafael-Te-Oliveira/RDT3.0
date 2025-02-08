@@ -177,7 +177,7 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                 }
             }
         }
-        else
+        else if (nr < 0)
         {
             printf("Timer estourado!\n");
             if (window_size > 1)
@@ -220,7 +220,7 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
         nr = recvfrom(sockfd, &p, sizeof(pkt), 0, (struct sockaddr *)src, (socklen_t *)&addrlen);
         corrupt_packet(&p);
 
-        if (nr > 0 && !iscorrupted(&p))
+        if (nr > 0 && !iscorrupted(&p) && p.h.pkt_type == PKT_DATA)
         {
             int seqnum = p.h.pkt_seq;
 
@@ -244,10 +244,10 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
             make_pkt(&ack, PKT_ACK, seqnum, NULL, 0);
 
             printf("ACK: %d\n", seqnum);
-            fflush(stdout);
 
             sendto(sockfd, &ack, ack.h.pkt_size, 0, (struct sockaddr *)src, addrlen);
         }
+        fflush(stdout);
     }
     return 0;
 }

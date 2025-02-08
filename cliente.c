@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     // Envia o tamanho do arquivo para o servidor
     rdt_send(s, &file_size, sizeof(file_size), &saddr);
 
-    char buffer[MAX_BUFFER_SIZE];
+    char buffer[BUFFER_SIZE];
     long total_sent = 0;
 
     struct timeval inicio, fim;
@@ -52,7 +52,7 @@ int main(int argc, char **argv)
     // Envia o arquivo em partes, com o tamanho máximo de buffer
     while (total_sent < file_size)
     {
-        int bytes_to_send = (file_size - total_sent > MAX_BUFFER_SIZE) ? MAX_BUFFER_SIZE : file_size - total_sent;
+        int bytes_to_send = (file_size - total_sent > BUFFER_SIZE) ? BUFFER_SIZE : file_size - total_sent;
 
         // Lê uma parte do arquivo para o buffer
         fread(buffer, 1, bytes_to_send, file);
