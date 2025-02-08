@@ -27,7 +27,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    FILE *file = fopen("arquivo_recebido.txt", "wb");
+    FILE *file = fopen("imagem_recebida.png", "wb");
     if (!file)
     {
         perror("Erro ao criar o arquivo");

@@ -27,7 +27,7 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    FILE *file = fopen("arquivo_enviado.txt", "rb");
+    FILE *file = fopen("imagem_enviada.png", "rb");
 
     if (!file)
     {

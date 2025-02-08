@@ -53,12 +53,12 @@ int iscorrupted(pkt *pr)
     return csuml != pr->h.csum;
 }
 
-// void corrupt_packet(pkt *p)
-// {
-//     int corrupt = (rand() % 10);
-//     if (corrupt > 5)
-//         p->h.csum = 0;
-// }
+void corrupt_packet(pkt *p)
+{
+    int corrupt = (rand() % 10);
+    if (corrupt > 5)
+        p->h.csum = 0;
+}
 
 // void delay_ack()
 // {
@@ -96,7 +96,7 @@ int make_pkt(pkt *p, htype_t type, hseq_t seqnum, void *msg, int msg_len)
 
 int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
 {
-    static window_entry send_window[MAX_WINDOW_SIZE];
+    static snd_window send_window[MAX_WINDOW_SIZE];
     int window_size = 1;
 
     struct timeval timeout, start, end;
@@ -146,12 +146,13 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
             int ack_seq = ack.h.pkt_seq;
             if (in_window(ack_seq, snd_base) && !send_window[ack_seq % MAX_WINDOW_SIZE].acked)
             {
-                printf("ACK: %d recebido com sucesso!\n", ack_seq);
-
                 send_window[ack_seq % MAX_WINDOW_SIZE].acked = 1;
                 confirmed_packets++;
                 acked_count++;
                 envios_simultaneos--;
+
+                printf("ACK: %d recebido com sucesso!\n", ack_seq);
+                printf("Pacotes confirmados: %d\n", confirmed_packets);
 
                 start = send_window[ack_seq % MAX_WINDOW_SIZE].send_time;
                 gettimeofday(&end, NULL);
@@ -167,6 +168,7 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                     send_window[snd_base % MAX_WINDOW_SIZE].acked = 0;
                     snd_base = (snd_base + 1) % MAX_SEQ_NUM;
                 }
+
                 if (window_size < MAX_WINDOW_SIZE && acked_count >= window_size)
                 {
                     acked_count = 0;
@@ -177,7 +179,13 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
         }
         else
         {
-            printf("Estouro de timer\n");
+            printf("Timer estourado!\n");
+            if (window_size > 1)
+            {
+                acked_count = 0;
+                window_size = window_size / 2;
+                printf("Janela dividida pela metade: %d\n", window_size);
+            }
             gettimeofday(&end, NULL);
             for (int i = snd_base; i != next_seqnum; i = (i + 1) % MAX_SEQ_NUM)
             {
@@ -185,10 +193,6 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                 float elapsed_time = time_diff(&send_window[idx].send_time, &end);
                 if (!send_window[idx].acked && elapsed_time > msec)
                 {
-                    acked_count = 0;
-                    window_size = window_size / 2;
-                    printf("Tamanho da janela resetado: %d\n", window_size);
-
                     gettimeofday(&send_window[idx].send_time, NULL);
                     sendto(sockfd, &send_window[idx].packet, send_window[idx].packet.h.pkt_size,
                            MSG_CONFIRM, (struct sockaddr *)dst, addrlen);
@@ -196,31 +200,25 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                 }
             }
         }
-        printf("Pacotes confirmados: %d\n", confirmed_packets);
         fflush(stdout);
     }
     return 0;
 }
 
-int has_dataseqnum(pkt *p, hseq_t seqnum)
-{
-    return (p->h.pkt_seq == seqnum && p->h.pkt_type == PKT_DATA);
-}
-
 int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
 {
-    static pkt recv_window[MAX_WINDOW_SIZE];
-    static int received[MAX_WINDOW_SIZE] = {0};
+    static rcv_window recv_window[MAX_WINDOW_SIZE];
+
     pkt p, ack;
     int nr, addrlen = sizeof(struct sockaddr_in);
     int received_count = 0;
-    int received_in_order = 0;
     int expected_packets = (buf_len + MMS - 1) / MMS;
     int offset = 0;
 
     while (received_count < expected_packets)
     {
         nr = recvfrom(sockfd, &p, sizeof(pkt), 0, (struct sockaddr *)src, (socklen_t *)&addrlen);
+        corrupt_packet(&p);
 
         if (nr > 0 && !iscorrupted(&p))
         {
@@ -229,18 +227,17 @@ int rdt_recv(int sockfd, void *buf, int buf_len, struct sockaddr_in *src)
             if (in_window(seqnum, rcv_base))
             {
                 int index = seqnum % MAX_WINDOW_SIZE;
-                if (!received[index])
+                if (!recv_window[index].received)
                 {
-                    recv_window[index] = p;
-                    received[index] = 1;
+                    recv_window[index].packet = p;
+                    recv_window[index].received = 1;
                     received_count++;
                 }
-                while (received[rcv_base % MAX_WINDOW_SIZE])
+                while (recv_window[rcv_base % MAX_WINDOW_SIZE].received)
                 {
-                    memcpy(buf + offset, recv_window[rcv_base % MAX_WINDOW_SIZE].msg, recv_window[rcv_base % MAX_WINDOW_SIZE].h.pkt_size - sizeof(hdr));
-                    received[rcv_base % MAX_WINDOW_SIZE] = 0;
+                    memcpy(buf + offset, recv_window[rcv_base % MAX_WINDOW_SIZE].packet.msg, recv_window[rcv_base % MAX_WINDOW_SIZE].packet.h.pkt_size - sizeof(hdr));
+                    recv_window[rcv_base % MAX_WINDOW_SIZE].received = 0;
                     rcv_base = (rcv_base + 1) % MAX_SEQ_NUM;
-                    received_in_order++;
                     offset += (p.h.pkt_size - sizeof(hdr));
                 }
             }

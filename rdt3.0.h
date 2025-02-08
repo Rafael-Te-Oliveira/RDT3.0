@@ -55,7 +55,13 @@ typedef struct
     pkt packet;
     int acked;
     struct timeval send_time;
-} window_entry;
+} snd_window;
+
+typedef struct
+{
+    pkt packet;
+    int received;
+} rcv_window;
 
 unsigned short checksum(unsigned short *, int);
 int iscorrupted(pkt *);
