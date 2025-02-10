@@ -52,15 +52,25 @@ int main(int argc, char **argv)
     long file_size = ftell(file);
     rewind(file);
 
+    char filename[50];
+    sprintf(filename, "log_%d_%d_%.3f.csv", dynamic_window, dynamic_timer, msec);
+
+    FILE *csv_file = fopen(filename, "w");
+    if (!csv_file)
+    {
+        perror("Erro ao abrir o arquivo");
+        return -1;
+    }
+
     // Envia o tamanho do arquivo para o servidor
-    rdt_send(s, &file_size, sizeof(file_size), &saddr, dynamic_window, dynamic_timer, msec);
+    rdt_send(s, &file_size, sizeof(file_size), &saddr, dynamic_window, dynamic_timer, msec, csv_file);
 
     char buffer[BUFFER_SIZE];
     long total_sent = 0;
 
     struct timeval inicio, fim;
     gettimeofday(&inicio, NULL);
-
+    int sends = 0;
     // Envia o arquivo em partes, com o tamanho máximo de buffer
     while (total_sent < file_size)
     {
@@ -69,10 +79,14 @@ int main(int argc, char **argv)
         // Lê uma parte do arquivo para o buffer
         fread(buffer, 1, bytes_to_send, file);
 
+        fprintf(csv_file, "\nEnvio: %d\n", sends);
+        fflush(csv_file);
+
         // Envia a parte do arquivo
-        rdt_send(s, buffer, bytes_to_send, &saddr, dynamic_window, dynamic_timer, msec);
+        rdt_send(s, buffer, bytes_to_send, &saddr, dynamic_window, dynamic_timer, msec, csv_file);
 
         total_sent += bytes_to_send;
+        sends++;
     }
 
     gettimeofday(&fim, NULL);
@@ -80,6 +94,12 @@ int main(int argc, char **argv)
     float exec_time = time_diff(&inicio, &fim);
 
     printf("Transmissão concluída em %.3f msec\n", exec_time);
+
+    fprintf(csv_file, "\nJanela Dinamica: %d, Timer Dinamico: %d, msec inicial: %.3f, Tamanho max Janela: %d, Tempo total de transmissão: %.3f\n", dynamic_window, dynamic_timer, msec, MAX_WINDOW_SIZE, exec_time);
+    fprintf(csv_file, "----------------------------");
+
+    fclose(csv_file);
+
     fclose(file);
     return 0;
 }

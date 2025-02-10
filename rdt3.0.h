@@ -67,7 +67,7 @@ unsigned short checksum(unsigned short *, int);
 int iscorrupted(pkt *);
 int make_pkt(pkt *, htype_t, hseq_t, void *, int);
 int has_ackseq(pkt *, hseq_t);
-int rdt_send(int, void *, int, struct sockaddr_in *, int, int, float);
+int rdt_send(int, void *, int, struct sockaddr_in *, int, int, float, FILE *);
 int has_dataseqnum(pkt *, hseq_t);
 int rdt_recv(int, void *, int, struct sockaddr_in *);
 float time_diff(struct timeval *, struct timeval *);

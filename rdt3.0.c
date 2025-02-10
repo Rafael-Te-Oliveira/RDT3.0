@@ -93,8 +93,10 @@ int make_pkt(pkt *p, htype_t type, hseq_t seqnum, void *msg, int msg_len)
     return SUCCESS;
 }
 
-int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dynamic_window, int dynamic_timer, float msec)
+int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dynamic_window, int dynamic_timer, float msec, FILE *csv_file)
 {
+    fprintf(csv_file, "RTTs:\n");
+    fflush(csv_file);
     static snd_window send_window[MAX_WINDOW_SIZE];
 
     int window_size = (dynamic_window) ? 1 : MAX_WINDOW_SIZE;
@@ -108,6 +110,7 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dy
     int confirmed_packets = 0;
     int envios_simultaneos = 0;
     int acked_count = 0;
+    int retransmitted_packets = 0;
 
     float sample_rtt;
 
@@ -133,7 +136,7 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dy
             next_seqnum = (next_seqnum + 1) % MAX_SEQ_NUM;
             sent_packets++;
             envios_simultaneos++;
-            printf("Envios simultaneos: %d\n", envios_simultaneos);
+            printf("Simultaneous sending: %d\n", envios_simultaneos);
         }
 
         settimer(sockfd, timeout, msec);
@@ -151,8 +154,8 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dy
                 acked_count++;
                 envios_simultaneos--;
 
-                printf("ACK: %d recebido com sucesso!\n", ack_seq);
-                printf("Pacotes confirmados: %d\n", confirmed_packets);
+                printf("ACK: %d successfully received!\n", ack_seq);
+                printf("Confirmed packets: %d\n", confirmed_packets);
 
                 start = send_window[ack_seq % MAX_WINDOW_SIZE].send_time;
                 gettimeofday(&end, NULL);
@@ -162,8 +165,10 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dy
                 if (dynamic_timer)
                     msec = update_timeout(sample_rtt);
 
-                printf("rtt: %.3f\n", sample_rtt);
-                printf("Novo tempo limite: %.3f\n", msec);
+                // printf("rtt: %.3f\n", sample_rtt);
+                fprintf(csv_file, "%.3f\n", sample_rtt);
+                fflush(csv_file);
+                printf("New msec: %.3f\n", msec);
 
                 while (send_window[snd_base % MAX_WINDOW_SIZE].acked)
                 {
@@ -175,18 +180,18 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dy
                 {
                     acked_count = 0;
                     window_size++;
-                    printf("Tamanho da janela: %d\n", window_size);
+                    printf("Window size: %d\n", window_size);
                 }
             }
         }
         else if (nr < 0)
         {
-            printf("Timer estourado!\n");
+            printf("Timer expired!\n");
             if (window_size > 1 && dynamic_window)
             {
                 acked_count = 0;
                 window_size = window_size / 2;
-                printf("Janela dividida pela metade: %d\n", window_size);
+                printf("Window divided by 2: %d\n", window_size);
             }
             gettimeofday(&end, NULL);
             for (int i = snd_base; i != next_seqnum; i = (i + 1) % MAX_SEQ_NUM)
@@ -199,11 +204,16 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dy
                     sendto(sockfd, &send_window[idx].packet, send_window[idx].packet.h.pkt_size,
                            MSG_CONFIRM, (struct sockaddr *)dst, addrlen);
                     printf("Retransmitting packet SeqNum: %d\n", send_window[idx].packet.h.pkt_seq);
+                    retransmitted_packets++;
                 }
             }
         }
         fflush(stdout);
     }
+    fprintf(csv_file, "Pacotes enviados:%d\n", sent_packets);
+    fprintf(csv_file, "Pacotes retransmitidos:%d\n", retransmitted_packets);
+    fprintf(csv_file, "Pacotes confirmados:%d\n", confirmed_packets);
+    fflush(csv_file);
     return 0;
 }
 
