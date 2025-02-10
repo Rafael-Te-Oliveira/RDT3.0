@@ -2,7 +2,6 @@
 
 float estimated_rtt = 100;
 float dev_rtt = 0;
-float msec = 100;
 
 static hseq_t rcv_base = 0; // Base da janela do receptor
 static hseq_t snd_base = 0; // Base da janela do emissor
@@ -94,11 +93,11 @@ int make_pkt(pkt *p, htype_t type, hseq_t seqnum, void *msg, int msg_len)
     return SUCCESS;
 }
 
-int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
+int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dynamic_window, int dynamic_timer, float msec)
 {
     static snd_window send_window[MAX_WINDOW_SIZE];
 
-    int window_size = (DYNAMIC_WINDOW) ? 1 : MAX_WINDOW_SIZE;
+    int window_size = (dynamic_window) ? 1 : MAX_WINDOW_SIZE;
 
     struct timeval timeout, start, end;
     int addrlen = sizeof(struct sockaddr_in);
@@ -160,7 +159,7 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
 
                 sample_rtt = time_diff(&start, &end);
 
-                if (DYNAMIC_TIMER)
+                if (dynamic_timer)
                     msec = update_timeout(sample_rtt);
 
                 printf("rtt: %.3f\n", sample_rtt);
@@ -172,7 +171,7 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
                     snd_base = (snd_base + 1) % MAX_SEQ_NUM;
                 }
 
-                if (window_size < MAX_WINDOW_SIZE && acked_count >= window_size && DYNAMIC_WINDOW)
+                if (window_size < MAX_WINDOW_SIZE && acked_count >= window_size && dynamic_window)
                 {
                     acked_count = 0;
                     window_size++;
@@ -183,7 +182,7 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst)
         else if (nr < 0)
         {
             printf("Timer estourado!\n");
-            if (window_size > 1 && DYNAMIC_WINDOW)
+            if (window_size > 1 && dynamic_window)
             {
                 acked_count = 0;
                 window_size = window_size / 2;

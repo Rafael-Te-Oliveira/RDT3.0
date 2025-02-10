@@ -47,10 +47,7 @@ struct pkt
 };
 typedef struct pkt pkt;
 
-#define DYNAMIC_WINDOW TRUE
-#define DYNAMIC_TIMER TRUE
-
-#define MAX_WINDOW_SIZE 20                // Tamanho maximo da janela deslizante
+#define MAX_WINDOW_SIZE 10                // Tamanho maximo da janela deslizante
 #define MAX_SEQ_NUM (2 * MAX_WINDOW_SIZE) // Números de sequência cíclicos
 
 typedef struct
@@ -70,7 +67,7 @@ unsigned short checksum(unsigned short *, int);
 int iscorrupted(pkt *);
 int make_pkt(pkt *, htype_t, hseq_t, void *, int);
 int has_ackseq(pkt *, hseq_t);
-int rdt_send(int, void *, int, struct sockaddr_in *);
+int rdt_send(int, void *, int, struct sockaddr_in *, int, int, float);
 int has_dataseqnum(pkt *, hseq_t);
 int rdt_recv(int, void *, int, struct sockaddr_in *);
 float time_diff(struct timeval *, struct timeval *);

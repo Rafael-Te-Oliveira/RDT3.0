@@ -7,7 +7,7 @@ int main(int argc, char **argv)
         printf("%s <IP> <porta>\n", argv[0]);
         return 0;
     }
-    srand(time(NULL));
+
     int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 
     if (s < 0)
@@ -27,6 +27,18 @@ int main(int argc, char **argv)
         return -1;
     }
 
+    int dynamic_window, dynamic_timer;
+    float msec;
+
+    printf("Janela Dinamica?(1:0)\n");
+    scanf("%d", &dynamic_window);
+
+    printf("Timer Dinamico?(1:0)\n");
+    scanf("%d", &dynamic_timer);
+
+    printf("Tempo limite rtt(msec):\n");
+    scanf("%f", &msec);
+
     FILE *file = fopen("imagem_enviada.png", "rb");
 
     if (!file)
@@ -41,7 +53,7 @@ int main(int argc, char **argv)
     rewind(file);
 
     // Envia o tamanho do arquivo para o servidor
-    rdt_send(s, &file_size, sizeof(file_size), &saddr);
+    rdt_send(s, &file_size, sizeof(file_size), &saddr, dynamic_window, dynamic_timer, msec);
 
     char buffer[BUFFER_SIZE];
     long total_sent = 0;
@@ -58,7 +70,7 @@ int main(int argc, char **argv)
         fread(buffer, 1, bytes_to_send, file);
 
         // Envia a parte do arquivo
-        rdt_send(s, buffer, bytes_to_send, &saddr);
+        rdt_send(s, buffer, bytes_to_send, &saddr, dynamic_window, dynamic_timer, msec);
 
         total_sent += bytes_to_send;
     }
