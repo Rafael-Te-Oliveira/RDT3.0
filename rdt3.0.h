@@ -47,6 +47,9 @@ struct pkt
 };
 typedef struct pkt pkt;
 
+#define DYNAMIC_WINDOW TRUE
+#define DYNAMIC_TIMER TRUE
+
 #define MAX_WINDOW_SIZE 20                // Tamanho maximo da janela deslizante
 #define MAX_SEQ_NUM (2 * MAX_WINDOW_SIZE) // Números de sequência cíclicos
 
