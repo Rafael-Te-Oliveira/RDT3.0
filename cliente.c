@@ -53,7 +53,7 @@ int main(int argc, char **argv)
     rewind(file);
 
     char filename[50];
-    sprintf(filename, "log_%d_%d_%.3f.csv", dynamic_window, dynamic_timer, msec);
+    sprintf(filename, "log_%d_%d_%.0f.csv", dynamic_window, dynamic_timer, msec);
 
     FILE *csv_file = fopen(filename, "w");
     if (!csv_file)

@@ -95,7 +95,7 @@ int make_pkt(pkt *p, htype_t type, hseq_t seqnum, void *msg, int msg_len)
 
 int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dynamic_window, int dynamic_timer, float msec, FILE *csv_file)
 {
-    fprintf(csv_file, "RTTs:\n");
+    fprintf(csv_file, "rtt;msec\n");
     fflush(csv_file);
     static snd_window send_window[MAX_WINDOW_SIZE];
 
@@ -166,9 +166,10 @@ int rdt_send(int sockfd, void *buf, int buf_len, struct sockaddr_in *dst, int dy
                     msec = update_timeout(sample_rtt);
 
                 // printf("rtt: %.3f\n", sample_rtt);
-                fprintf(csv_file, "%.3f\n", sample_rtt);
+                fprintf(csv_file, "%.3f;", sample_rtt);
+                fprintf(csv_file, "%.3f\n", msec);
                 fflush(csv_file);
-                printf("New msec: %.3f\n", msec);
+                // printf("New msec: %.3f\n", msec);
 
                 while (send_window[snd_base % MAX_WINDOW_SIZE].acked)
                 {
