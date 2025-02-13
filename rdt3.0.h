@@ -11,8 +11,8 @@
 #include <time.h>
 #include <errno.h>
 
-#define MMS 128
-#define BUFFER_SIZE 32768
+#define MMS 128           // tamanho maximo da mensagem
+#define BUFFER_SIZE 32768 // tamanho do buffer de envio e recebimento
 
 #define ALPHA 0.125
 #define BETA 0.25
@@ -30,7 +30,7 @@ typedef uint8_t htype_t;
 #define PKT_ACK 0
 #define PKT_DATA 1
 
-struct hdr
+struct hdr // estrutura do header
 {
     hseq_t pkt_seq;
     hsize_t pkt_size;
@@ -40,7 +40,7 @@ struct hdr
 
 typedef struct hdr hdr;
 
-struct pkt
+struct pkt // estrutura do pacote
 {
     hdr h;
     unsigned char msg[MMS];
@@ -50,17 +50,17 @@ typedef struct pkt pkt;
 #define MAX_WINDOW_SIZE 10                // Tamanho maximo da janela deslizante
 #define MAX_SEQ_NUM (2 * MAX_WINDOW_SIZE) // Números de sequência cíclicos
 
-typedef struct
+typedef struct // estrutura da janela de envio
 {
-    pkt packet;
-    int acked;
-    struct timeval send_time;
+    pkt packet;               // pacote
+    int acked;                // recebeu ack?
+    struct timeval send_time; // tempo de envio
 } snd_window;
 
-typedef struct
+typedef struct // estrutura da janea de recebimento
 {
-    pkt packet;
-    int received;
+    pkt packet;   // pacote
+    int received; // ja foi recebido?
 } rcv_window;
 
 unsigned short checksum(unsigned short *, int);

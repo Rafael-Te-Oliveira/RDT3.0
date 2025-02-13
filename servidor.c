@@ -2,12 +2,17 @@
 
 int main(int argc, char **argv)
 {
+    // Verifica se o argumento correto foi passado (porta)
     if (argc != 2)
     {
         printf("%s <porta>\n", argv[0]);
         return 0;
     }
+
+    // seeder para randomizar corrupçao
     srand(time(NULL));
+
+    // Criação do socket UDP
     int s = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (s < 0)
     {
@@ -21,12 +26,14 @@ int main(int argc, char **argv)
     saddr.sin_port = htons(atoi(argv[1]));
     saddr.sin_addr.s_addr = INADDR_ANY;
 
+    // associa o socket ao endereço e porta definidos
     if (bind(s, (struct sockaddr *)&saddr, sizeof(saddr)) < 0)
     {
         perror("bind()");
         return -1;
     }
 
+    // Cria o arquivo a ser recebido
     FILE *file = fopen("imagem_recebida.png", "wb");
     if (!file)
     {
@@ -39,10 +46,12 @@ int main(int argc, char **argv)
     // Recebe o tamanho do arquivo
     rdt_recv(s, &file_size, sizeof(file_size), &caddr);
 
+    // aloca o buffer
     char buffer[BUFFER_SIZE];
     long total_received = 0;
 
-    // Recebe o arquivo em partes
+    // Loop para receber o arquivo em partes (tamanho máximo definido pelo buffer)
+
     while (total_received < file_size)
     {
         int bytes_to_receive = (file_size - total_received > BUFFER_SIZE) ? BUFFER_SIZE : file_size - total_received;
@@ -54,7 +63,7 @@ int main(int argc, char **argv)
 
         total_received += bytes_to_receive;
     }
-
+    // Fecha o arquivo
     fclose(file);
     return 0;
 }
